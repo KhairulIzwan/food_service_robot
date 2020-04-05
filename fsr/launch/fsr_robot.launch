@@ -1,0 +1,9 @@
+<launch>
+
+	<!-- ROS nodes (rplidar) -->
+	<include file="$(find fsr)/launch/lidar_robot.launch" />
+
+	<!-- ROS nodes (rosserial) -->
+	<include file="$(find fsr)/launch/motor_robot.launch" />
+
+</launch>
