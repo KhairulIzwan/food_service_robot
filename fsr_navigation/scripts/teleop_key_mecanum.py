@@ -13,6 +13,9 @@ import os
 #remove or add the message type
 from geometry_msgs.msg import Twist
 
+"""Add changes here!"""
+from std_msgs.msg import Int32
+
 if os.name == 'nt':
 	import msvcrt
 else:
@@ -28,17 +31,27 @@ LIN_VEL_STEP_SIZE = 0.01
 ANG_VEL_STEP_SIZE = 0.1
 
 msg = """
-Control Your Tank!
+Control Your Food Service Robot!
 ---------------------------
-Moving around:
-	w
-a	s	d
-	x
+Moving around:			Special:
+q	w	e
+a	s	d		,	.
+z	x	c
 
-w/x : increase/decrease linear velocity
-a/d : increase/decrease angular velocity
+w :	forward
+x :	backward
+a :	left
+d :	right
+q :	45 forward left
+e :	45 forward right
+z :	45 backward left
+c :	45 backward right
+, :	rotate left
+. :	rotate right
 
 space key, s : force stop
+b : increase speed
+n : decrease speed
 
 CTRL-C to quit
 """
@@ -62,8 +75,7 @@ def getKey():
 	return key
 
 def vels(target_linear_vel, target_angular_vel):
-	return "currently:\tlinear vel %s\t angular vel %s " % (
-				target_linear_vel,target_angular_vel)
+	return "currently:\tvel %s " % target_linear_vel
 
 def makeSimpleProfile(output, input, slop):
 	if input > output:
@@ -111,6 +123,7 @@ if __name__=="__main__":
 
 	rospy.init_node('tank_teleop')
 	pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
+	pub_servo_dir = rospy.Publisher('/cmd_servo_dir', Int32, queue_size=10)
 
 	turtlebot3_model = rospy.get_param("model", "burger")
 
@@ -119,38 +132,86 @@ if __name__=="__main__":
 	target_angular_vel  = 0.0
 	control_linear_vel  = 0.0
 	control_angular_vel = 0.0
+	servoDirVal = 0
 
 	try:
 		print(msg)
 		while(1):
 			key = getKey()
-			if key == 'w' :
+
+			# increase speed (linear only!)
+			if key == 'b' :
 				target_linear_vel = checkLinearLimitVelocity(
 					target_linear_vel + LIN_VEL_STEP_SIZE)
 				status = status + 1
 				print(vels(target_linear_vel,target_angular_vel))
-			elif key == 'x' :
+
+			# decrease speed (linear only!)
+			elif key == 'n' :
 				target_linear_vel = checkLinearLimitVelocity(
 					target_linear_vel - LIN_VEL_STEP_SIZE)
 				status = status + 1
 				print(vels(target_linear_vel,target_angular_vel))
+
+			# w :	forward
+			elif key == 'w' :
+				servoDirVal = 1
+				status = status + 1
+
+			# x :	backward
+			elif key == 'x' :
+				servoDirVal = 2
+				status = status + 1
+
+			# a :	left
 			elif key == 'a' :
-				target_angular_vel = checkAngularLimitVelocity(
-					target_angular_vel + ANG_VEL_STEP_SIZE)
+				servoDirVal = 3
 				status = status + 1
-				print(vels(target_linear_vel,target_angular_vel))
+
+			# d :	right
 			elif key == 'd' :
-				target_angular_vel = checkAngularLimitVelocity(
-					target_angular_vel - ANG_VEL_STEP_SIZE)
+				servoDirVal = 4
 				status = status + 1
-				print(vels(target_linear_vel,target_angular_vel))
+
+			# q :	45 forward left
+			elif key == 'q' :
+				servoDirVal = 5
+				status = status + 1
+
+			# e :	45 forward right
+			elif key == 'e' :
+				servoDirVal = 6
+				status = status + 1
+
+			# z :	45 backward left
+			elif key == 'z' :
+				servoDirVal = 7
+				status = status + 1
+
+			# c :	45 backward right
+			elif key == 'c' :
+				servoDirVal = 8
+				status = status + 1
+
+			# , :	rotate left
+			elif key == ',' :
+				servoDirVal = 9
+				status = status + 1
+
+			# . :	rotate right
+			elif key == '.' :
+				servoDirVal = 10
+				status = status + 1
+
 			elif key == ' ' or key == 's' :
 				target_linear_vel   = 0.0
 				control_linear_vel  = 0.0
 				target_angular_vel  = 0.0
 				control_angular_vel = 0.0
 				print(vels(target_linear_vel, target_angular_vel))
+
 			else:
+				servoDirVal = 0
 				if (key == '\x03'):
 					break
 
@@ -178,6 +239,10 @@ if __name__=="__main__":
 
 			pub.publish(twist)
 
+			servoDir = Int32()
+			servoDir.data = servoDirVal
+			pub_servo_dir.publish(servoDir)
+
 	except:
 		print(e)
 
@@ -193,6 +258,10 @@ if __name__=="__main__":
 		twist.angular.z = 0.0
 
 		pub.publish(twist)
+
+		servoDir = Int32()
+		servoDir.data = servoDirVal
+		pub_servo_dir.publish(servoDir)
 
 	if os.name != 'nt':
 		termios.tcsetattr(sys.stdin, termios.TCSADRAIN, settings)
